@@ -31,7 +31,7 @@ There are *synchronous* versons of the global  `async` free functions.  They mer
 
 ### Mutex
 
-`Mutex` is a class that simplifies guarding shared data for thread safety by providing a `withLock` method to automate locking and unlocking the mutex, which is what should be used most of the time; however,  recognizing that sometimes it's necesary to interleve locking and unlocking different mutexes in ways that aren't always conveniently nestable, it also provides explicit `lock`, `unlock` methods as well as a failable `tryLock`  method that allows you to specify a time-out.
+`Mutex` is a class that simplifies guarding shared data for thread safety by providing a `withLock` method to automate locking and unlocking the mutex, which is what should be used most of the time; however,  recognizing that sometimes it's necesary to interleave locking and unlocking different mutexes in ways that aren't always conveniently nestable, it also provides explicit `lock`, `unlock` methods as well as a failable `tryLock`  method that allows you to specify a time-out.
 
 ### Future
 
@@ -62,7 +62,7 @@ When you call `async`, it schedules your closure for execution, like GCD's nativ
 
 #### `Future` handler attachment
 
-As a basic example, let's say we have a long-running function `foo() throws -> Int`.  We can schedule `foo` with `async`, and attach handlers to the returned `Future` like so:
+As a basic example, let's say we have a long-running function, `foo() throws -> Int`.  We can schedule `foo` with `async`, and attach handlers to the returned `Future` like so:
 
     async { return try foo() }.onSuccess {
         print("foo returned \($0)")
@@ -120,7 +120,7 @@ As an alternative to the fluid, functional-like, usage above, you can use `Futur
 
 Here, we query for a value by accessing the `.value` property, and for an error via the `.error` property.  These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, if it returns a value, `.value` will contain that value, and `.error` will be `nil`.   If `foo` throws an error, then `.value` will be `nil`, and `.error` will contain the error.
 
-This blocking behavior is useful if the next bit of code depends on value returned by `foo`, but it can be a problem if we could do other work while we wait for the `Future` to be ready, because it stops our current thread in its tracks until `foo` is done, in which case, we didn't get much value from using `async`.  For this reason the ability to determine if the `Future` is ready without blocking is essential.  You can do this with the `.isReady` property:
+This blocking behavior is useful if the next bit of code depends on the value returned by `foo`, but it can be a problem if we could do other work while we wait for the `Future` to be ready, because it stops our current thread in its tracks until `foo` is done, in which case, we don't get much value from using `async`.  For this reason, the ability to determine if the `Future` is ready without blocking is essential.  You can do this with the `.isReady` property:
 
     let future = async { return try foo() }
 
@@ -193,7 +193,7 @@ Alternatively, you can specify the delay as a `TimeInterval` in seconds, using t
 
 ### `Mutex`
 
-One unfortunate side effect of concurrent code, such as that executed by `async`, is that any mutable shared data that could be accessed by multiple tasks simultaneously must be guarded to ensure that it is updated properly.  That's what `Mutex` is for.   You create a `Mutex` to guard some data, and then lock it before accessing the shared data, and unlock it afterwards.   Explicitly having to lock and unlock the `Mutex` is error prone, *so the preferred way to use my implementation of `Mutex` is through its `withLock` method*.   As an example, here's a simple implemenation of a `SharedStack`:
+One unfortunate side effect of concurrent code, such as that executed by `async`, is that any mutable shared data that could be accessed by multiple tasks simultaneously must be guarded to avoid data races.  That's what `Mutex` is for.   You create a `Mutex` to guard some data, and then lock it before accessing the shared data, and unlock it afterwards.   Explicitly having to lock and unlock the `Mutex` is error prone, *so the preferred way to use this implementation of `Mutex` is through its `withLock` method*.   As an example, here's a simple implemenation of a `SharedStack`:
 
     class SharedStack<T>
     {
@@ -217,11 +217,11 @@ One unfortunate side effect of concurrent code, such as that executed by `async`
         }
     }
 
-`withLock` blocks until the a lock can be obtained, and then once the lock is obtained, it executes the closure passed to it, and unlocks before returning.  The unlock happens immediately after the closure completes, regardless of whether it returns or throws.
+`withLock` blocks until the a lock can be obtained, and once obtained, it executes the closure passed to it, and unlocks before returning.  The unlock happens immediately after the closure completes, regardless of whether it returns or throws.
 
 `Mutex` also provides a failable `withAttemptedLock` method that allows you specify a time-out, possibly none, after which it will stop waiting for a lock and throws `MutexError.lockFailed`.  If it fails, the lock is not obtained and the closure is not run.
 
-Although explicitly locking and unlocking the `Mutex` is error-prone, there are circumstances when neither `withLock` nor `withAttemptedLock` will do the job, such as interleving locking and unlocking multiple mutexes in ways that are neither exclusive to one another, nor cleanly nestable.  For those cases, `Mutex` also provides `lock()`, `tryLock()`, and `unlock()` methods.  Prefer `withLock` and `withAttemptedLock` when you can use them, but if you must explicitly lock and unlock the mutex yourself it is your responsibility to ensure that each `lock()` or successful `tryLock()` is balanced by exactly one `unlock()`, otherwise, you'll deadlock, or crash when the `Mutex` is deinitialized.  For debug builds, `Mutex` tries to help you detect these cases.
+Although explicitly locking and unlocking the `Mutex` is error-prone, there are circumstances when neither `withLock` nor `withAttemptedLock` will do the job, such as interleaving locking and unlocking multiple mutexes in ways that are neither exclusive to one another, nor cleanly nestable.  For those cases, `Mutex` also provides `lock()`, `tryLock()`, and `unlock()` methods.  Prefer `withLock` and `withAttemptedLock` when you can use them, but if you must explicitly lock and unlock the mutex yourself it is your responsibility to ensure that each `lock()` or successful `tryLock()` is balanced by exactly one `unlock()`, otherwise, you'll deadlock, or crash when the `Mutex` is deinitialized. 
 
 Refer to comment documentation for more information on these other methods.
 
