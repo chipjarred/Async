@@ -499,14 +499,19 @@ public final class Future<T>
     {
         let runHandlers: Bool = timeoutLock.withLock
         {
-            // We might have timed-out so can't assume we can set anything
-            guard _error == nil else { return false }
-            
-            assert(_value == nil)
-            
-            _value = value
-            unlock()
-            return true
+            // Make sure we don't set the value while a handler is being added
+            // otherwise some handlers could be skipped under race conditions
+            return handlerLock.withLock
+            {
+                // We might have timed-out so can't assume we can set anything
+                guard _error == nil else { return false }
+                
+                assert(_value == nil)
+                
+                _value = value
+                unlock()
+                return true
+            }
         }
         
         if runHandlers {
@@ -520,13 +525,18 @@ public final class Future<T>
     {
         let runHandlers: Bool = timeoutLock.withLock
         {
-            // We might have timed-out so can't assume we can set anything
-            guard _error == nil && _value == nil  else { return false }
-            
-            _error = error
-            unlock()
-            
-            return true
+            // Make sure we don't set the value while a handler is being added
+            // otherwise some handlers could be skipped under race conditions
+            return handlerLock.withLock
+            {
+                // We might have timed-out so can't assume we can set anything
+                guard _error == nil && _value == nil  else { return false }
+                
+                _error = error
+                unlock()
+                
+                return true
+            }
         }
         
         if runHandlers {
