@@ -99,7 +99,7 @@ If you prefer to use Swift's `Result` type, you can use a more general `.onCompl
         }
     }
 
-You can specify as many handlers as you like, mixing and matching, completion handlers, success handlers, and failure handlers.  All applicable handlers will be called in the order they are attached.  This allows you to return the future you got from `async` so that code further up the call chain can attach their own handlers.
+You can specify as many handlers as you like, mixing and matching, completion handlers, success handlers, and failure handlers.  All applicable handlers will be called concurrently.  This allows you to return the future you got from `async` so that code further up the call chain can attach their own handlers.
 
 You can also specify a time-out for the `Future` using the same fluid style.  See the comment documentation for `Future` for more information on that.
 
