@@ -76,8 +76,8 @@ public class Mutex
      - Important: Each call to `lock` must be balanced with a call to `unlock` before  this `Mutex`
         is deinitialized.
      */
-	public func lock() {
-        semaphore.wait(timeout: .distantFuture)
+	public final func lock() {
+        let _ = semaphore.wait(timeout: .distantFuture)
     }
     
     // ------------------------------------------
@@ -100,7 +100,7 @@ public class Mutex
         this `Mutex` is deinitialized.  If `tryLock` fails, you must **not** call `unlock` without first
         obtaining a successful lock.
      */
-    public func tryLock(deadline: DispatchTime = .now()) -> Bool
+    public final func tryLock(deadline: DispatchTime = .now()) -> Bool
     {
         switch semaphore.wait(timeout: deadline)
         {
@@ -132,7 +132,7 @@ public class Mutex
         obtaining a successful lock.
      */
     @inlinable
-    public func tryLock(timeout: DispatchTimeInterval) -> Bool {
+    public final func tryLock(timeout: DispatchTimeInterval) -> Bool {
         return tryLock(deadline: .now() + timeout)
     }
     
@@ -155,7 +155,7 @@ public class Mutex
         obtaining a successful lock.
      */
     @inlinable
-    public func tryLock(seconds: TimeInterval) -> Bool {
+    public final func tryLock(seconds: TimeInterval) -> Bool {
         return tryLock(timeout: .nanoseconds(Int(seconds * 1_e+9)))
     }
 
@@ -172,8 +172,7 @@ public class Mutex
      - Important: `unlock` must be called to balance out a call to `lock` before this `Mutex` is
         deinitialized.
      */
-	public func unlock()
-    {
+	public final func unlock() {
         semaphore.signal()
     }
 	
@@ -191,7 +190,7 @@ public class Mutex
      - Throws: This method an error thrown by `code`
      */
     @inlinable
-    public func withLock<T>(_ code:() throws -> T) rethrows -> T
+    public final func withLock<T>(_ code:() throws -> T) rethrows -> T
     {
         lock()
         defer { unlock() }
@@ -215,7 +214,7 @@ public class Mutex
         thrown, `code` is not executed.
      */
     @inlinable
-    public func withAttemptedLock<T>(
+    public final func withAttemptedLock<T>(
         deadline: DispatchTime = .now(),
         _ code:() throws -> T) throws -> T
     {
@@ -241,7 +240,7 @@ public class Mutex
         thrown, `code` is not executed.
      */
     @inlinable
-    public func withAttemptedLock<T>(
+    public final func withAttemptedLock<T>(
         timeout: DispatchTimeInterval = .nanoseconds(0),
         _ code:() throws -> T) throws -> T
     {
@@ -264,7 +263,7 @@ public class Mutex
         thrown, `code` is not executed.
      */
     @inlinable
-    public func withAttemptedLock<T>(
+    public final func withAttemptedLock<T>(
         seconds: TimeInterval = 0,
         _ code:() throws -> T) throws -> T
     {
