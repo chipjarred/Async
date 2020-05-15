@@ -27,7 +27,7 @@ There are *synchronous* versons of the global  `async` free functions.  They mer
 
 ### DispatchQueue extension
 
-`async` and `sync` methods have been added to `DispatchQueue` to corespond to their global versions, but allow you get the `Future` returning behavior on the queue of your choice instead of the default global concurrent queue.
+`async` and `sync` methods have been added to `DispatchQueue` to corespond to their global versions, but you get the `Future` returning behavior on the queue of your choice instead of the default global concurrent queue.
 
 ### Mutex
 
@@ -58,10 +58,11 @@ You can think of a `Future` in several ways, and they are all simultaneously tru
 
 The implementation of `async` in this package, differs from GCD's native `async` and `asyncAfter` methods in two ways.  The first is that it returns a `Future`, and the second is that there are global free function variants that use a default concurrent `DispatchQueue`, in addition to methods on `DispatchQueue` itself.
 
-When you call `async`, it schedules your closure for execution, like GCD's native `async`, but it also immediately returns a `Future` for the value your closure will return, or the error it will throw.  You can hold on to this `Future` as a means for querying for your closure's eventual result, or you can use it to attach handlers... or both.  The two ways of using it can be used together, if that makes sense for your application.
+When you call `async`, it schedules your closure for execution, using GCD's native `async`, but it also immediately returns a `Future` for the value your closure will return, or the error it will throw.  You can hold on to this `Future` as a means for querying for your closure's eventual result, or you can use it to attach handlers... or both.  The two ways of using it can be used together, if that makes sense for your application.
 
 #### `Future` handler attachment
 
+##### `.onSuccess` and `.onFailure`
 As a basic example, let's say we have a long-running function, `foo() throws -> Int`.  We can schedule `foo` with `async`, and attach handlers to the returned `Future` like so:
 
     async { return try foo() }.onSuccess {
@@ -72,7 +73,7 @@ As a basic example, let's say we have a long-running function, `foo() throws -> 
 
 `foo` will run concurrently, and if it eventually returns a value, the closure passed to `.onSuccess` will be called with that value.   If on the other hand, `foo` throws, the closure passed to `.onFailure` is called with the error.
 
-Notice how the `Future` doesn't explicitly appear in the above code, but it's there.  It's what `async` returns, in this case, `Future<Int>`, and it's that `Future`'s `onSuccess` method that we're calling to specify the success handler.  `.onSuccess` returns the same `Future`, which allows us to chain a `.onFailure` method call to schedule our failure handler.    It is functionally equivalent to:
+Notice how the `Future` doesn't explicitly appear in the above code, but it's there.  It's what `async` returns, in this case, `Future<Int>`, and it's that `Future`'s `onSuccess` method that we're calling to specify the success handler.  `.onSuccess` returns the same `Future`, which allows us to chain a `.onFailure` method call to schedule our failure handler.    It is equivalent to:
 
 
     let future = async { return try foo() }
@@ -88,6 +89,7 @@ Notice how the `Future` doesn't explicitly appear in the above code, but it's th
 
 You can attach handlers in any order, if you prefer to put the failure handler first.
 
+##### `.onCompletion`
 If you prefer to use Swift's `Result` type, you can use a more general `.onCompletion` handler:
 
     async { return try foo() }.onCompletion {
@@ -106,6 +108,7 @@ You can also specify a time-out for the `Future` using the same fluid style.  Se
 
 #### `Future` as a placeholder
 
+##### `.value` and `.error`
 As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   We'll use the same `foo` from the previous examples:
 
     let future = async { return try foo() }
@@ -135,6 +138,7 @@ This blocking behavior is useful if the next bit of code depends on the value re
         print("foo threw exception, \(error.localizedDescription)")
     }
 
+##### `.result`
 As with completion handlers, if you prefer to use Swift's `Result` type, you can access the `.result` property instead of `.value` and `.error`:
 
     let future = async { return try foo() }
@@ -151,6 +155,7 @@ As with completion handlers, if you prefer to use Swift's `Result` type, you can
 
 Any handlers that have been attached will still be run.    The two styles of use can be used together.
 
+##### `.wait`
 If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
 
     let future = async { let _ = try foo() }
@@ -167,6 +172,7 @@ All of the `async` variants allow you to specify quality of service (qos), and f
 
 The following examples use the global async free functions, but the `DispatchQueue` extension provides equivalent instance methods with the same signatures as the global functions, so you can call them on a specific `DispatchQueue`.
 
+##### `.async(afterDeadline:)`
 If you need to delay execution of your closure until a specific point in time, you can use the `afterDeadline` variant to specify a `DispatchTime` or `Date`
 
     let deadline: DispatchTime = .now() + .milliseconds(1000)
@@ -176,12 +182,14 @@ If you need to delay execution of your closure until a specific point in time, y
         return try foo()
     }
     
+##### `.async(afterInterval:)`
 To specify a delay interval using just `DispatchTimeInterval`, you can use the `afterInterval` variant
 
     let future = async(afterInterval: .milliseconds(1000)) {
         return try foo()
     }
 
+##### `.async(afterSeconds:)`
 Alternatively, you can specify the delay as a `TimeInterval` in seconds, using the `afterSeconds` variant
 
     let future = async(afterSeconds: 1) { return try foo() }
@@ -227,6 +235,9 @@ Refer to comment documentation for more information on these other methods.
 
 ### `Promise`
 
+`Promise` is the sender of the `Promise`/`Future` team.  It's how you obtain a `Future` to return from your own code, and how you set the value in the `Future` from a code that may be executed far removed from the code receiving the `Future`, possibly in a completely different thread.
+
+##### `.set(from:)`
 If you wish to return a `Future` in your own custom code, you do so by creating a `Promise` and returning its `.future` property in the immediate context, while passing the closure that returns the value, possibly throwing an error,  to the `set(from:)` method in the dispatched context.
 
 As an example, let's suppose you want to wrap `URLSession.dataTask` to return a `Future` to the resulting `Data`.
@@ -257,6 +268,7 @@ As an example, let's suppose you want to wrap `URLSession.dataTask` to return a 
 This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `set` will set the `error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `set` will set the `value` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also auto-resume the task returned from `dataTask` before returning.
 
 
+##### `.setResult(from:)`
 `Promise` also provides a `setResult(from:)` method that takes a *non-throwing* closure that returns a Swift `Result`: 
 
     extension URLSession
