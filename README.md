@@ -60,7 +60,7 @@ Attaching handlers (callbacks) to a `Future` is the easiest and safest way to ke
 
 They do have some drawbacks though.  If you're combining the results of several asynchronous tasks that must all complete before progress can be made, handlers can be awkward.  For example, in a computation graph, all input computations must complete before the current node can be evaluated.   In that case the current computation should block until the inputs are ready.  Of course, you could force the square peg of handlers into this round hole, but that's not a good use case for handlers.  You'd need to update some counter for inputs, ensure that updates to that counter from multiple handlers happen atomicly, and block on that counter.  It's not that hard, but what a needless, inefficient and error-prone mess!  By comparison, it's ideal for using collection of `Future`s as placeholders.  Just iteratively wait on each of them.  When the loop completes they're all ready, and you can proceed to evaluate the current node.  This is exactly why I provide that alternative.
 
-On the other hand, fetching data from a network or responding to events, very common cases, are usually ideal uses of handlers, and keeping a `Future` for a placeholder becomes the awkward one, becuase it requires you either to block until its ready, or to write some kind of loop or other scheme to continually check when it's ready while your code continues.
+On the other hand, fetching data from a network or responding to events, very common cases, are usually ideal uses of handlers, and keeping a `Future` for a placeholder becomes the awkward one, because it requires you either to block until it's ready, or to write some kind of loop or other scheme to continually check when it's ready while your code continues.
 
 The implementation of `async` in this package, differs from GCD's native `async` and `asyncAfter` methods in two ways.  The first is that it returns a `Future`, and the second is that there are global free function variants that use a default concurrent `DispatchQueue`, in addition to methods on `DispatchQueue` itself.
 
@@ -79,7 +79,7 @@ As a basic example, let's say we have a long-running function, `foo() throws -> 
 
 `foo` will run concurrently, and if it eventually returns a value, the closure passed to `.onSuccess` will be called with that value.   If on the other hand, `foo` throws, the closure passed to `.onFailure` is called with the error.
 
-Notice how the `Future` doesn't explicitly appear in the above code, but it's there.  It's what `async` returns, in this case, `Future<Int>`, and it's that `Future`'s `onSuccess` method that we're calling to specify the success handler.  `.onSuccess` returns the same `Future`, which allows us to chain a `.onFailure` method call to schedule our failure handler.    It is equivalent to:
+Notice how the `Future` doesn't explicitly appear in the above code, but it's there.  It's what `async` returns, in this case, `Future<Int>`, and it's that `Future`'s `.onSuccess` method that we're calling to specify the success handler.  `.onSuccess` returns the same `Future`, which allows us to chain a `.onFailure` method call to schedule our failure handler.    It is equivalent to:
 
 
     let future = async { return try foo() }
@@ -118,13 +118,13 @@ You can also specify a time-out for the `Future` using the same fluid style.  If
 
 As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   This is especially useful when you use `async` to subdivide a larger task into to a number of concurrent subtasks, which must be combined into a final result before continuing.
 
-When using `Future` as a placeholder, you store away as you might store the actual value or value returned by the asynchronous code if it had been called synchronously, and query then `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
+When using `Future` as a placeholder, you store it away as you might store the actual value or value returned by the asynchronous code, if it had been called synchronously, and query then `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
 
 Any handlers that have been attached will still be run, whether or not you use `Future` as a placeholder.    The two styles of use can be used together.
 
 ##### Blocking methods and properties
 
-In an AppKit/UIKit application, using blocking methods and properties in the main thread make your app unresponsive while they block.   Either use them in separate thread, use `.isReady` to do something else when the `Future` is not ready, ensure that all asynchronous calls will completely quickly, or just avoid blocking methods and properties altogether by attaching handlers instead. 
+Be aware that in an AppKit/UIKit application, using blocking methods and properties in the main thread can make your app unresponsive while they block.   Either use them in separate thread that can safely block, use `.isReady` to do something else when the `Future` is not ready, ensure that all asynchronous calls will complete quickly, or just avoid blocking methods and properties altogether by attaching handlers instead. 
 
 ###### `.value` and `.error`:
 You can obtain the value or error from the future with its `.value` and `.error` properties.  We'll use the same `foo` from the previous examples:
@@ -256,7 +256,7 @@ One unfortunate side effect of concurrent code, such as that executed by `async`
 
 `Mutex` also provides a failable `withAttemptedLock` method that allows you specify a time-out, possibly none, after which it will stop waiting for a lock and throws `MutexError.lockFailed`.  If it fails, the lock is not obtained and the closure is not run.
 
-Although explicitly locking and unlocking the `Mutex` is error-prone, there are circumstances when neither `withLock` nor `withAttemptedLock` will do the job, such as interleaving locking and unlocking multiple mutexes in ways that are neither exclusive to one another, nor cleanly nestable.  For those cases, `Mutex` also provides `lock()`, `tryLock()`, and `unlock()` methods.  Prefer `withLock` and `withAttemptedLock` when you can use them, but if you must explicitly lock and unlock the mutex yourself it is your responsibility to ensure that each `lock()` or successful `tryLock()` is balanced by exactly one `unlock()`, otherwise, you'll deadlock, or crash when the `Mutex` is deinitialized. 
+Although explicitly locking and unlocking the `Mutex` is error-prone, there are circumstances when neither `withLock` nor `withAttemptedLock` will do the job, such as interleaving locking and unlocking multiple mutexes in ways that are neither exclusive to one another, nor cleanly nestable.  For those cases, `Mutex` also provides `lock()`, `tryLock()`, and `unlock()` methods.  *Prefer `withLock` and `withAttemptedLock`* when you can use them. **If you must explicitly lock and unlock the mutex yourself, it is your responsibility to ensure that each `lock()` or successful `tryLock()` is balanced by exactly one `unlock()`**, otherwise, you'll deadlock, or crash when the `Mutex` is deinitialized.  This crashing behavior is one that is inherited by its being implemented in terms of `DispatchSemaphore` which crashes when deinitialized with a negative value, which it will have if the `Mutex` is still locked.  This is actually a good thing because it tells you unambiguously that you have a bug.  To paraphrase Apple's documentation on the subject: Don't do that!
 
 Refer to comment documentation for more information on these other methods.
 
@@ -265,7 +265,7 @@ Refer to comment documentation for more information on these other methods.
 `Promise` is the sender of the `Promise`/`Future` team.  It's how you obtain a `Future` to return from your own code, and how you set the value in the `Future` from a code that may be executed far removed from the code receiving the `Future`, possibly in a completely different thread.
 
 ##### `.set(from:)`
-If you wish to return a `Future` in your own custom code, you do so by creating a `Promise` and returning its `.future` property in the immediate context, while passing the closure that returns the value, possibly throwing an error,  to the `set(from:)` method in the dispatched context.
+If you wish to return a `Future` in your own custom code, you do so by creating a `Promise` and returning its `.future` property in the immediate context, while passing the closure that returns the value, possibly throwing an error,  to the `.set(from:)` method in the dispatched context.
 
 As an example, let's suppose you want to wrap `URLSession.dataTask` to return a `Future` to the resulting `Data`.
 
@@ -292,7 +292,7 @@ As an example, let's suppose you want to wrap `URLSession.dataTask` to return a 
     }
 
 
-This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `set` will set the `error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `set` will set the `value` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also auto-resume the task returned from `dataTask` before returning.
+This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `.set(from:)` will set the `.error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `.set(from:)` will set the `.value` to `data` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also resume the task returned from `dataTask` before returning.
 
 
 ##### `.setResult(from:)`
