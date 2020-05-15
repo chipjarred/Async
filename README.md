@@ -277,7 +277,7 @@ Refer to comment documentation for more information on these other methods.
 ##### `.set(from:)`
 If you wish to return a `Future` in your own custom code, you do so by creating a `Promise` and returning its `.future` property in the immediate context, while passing the closure that returns the value, possibly throwing an error,  to the `.set(from:)` method in the dispatched context.
 
-As an example, let's suppose you want to wrap `URLSession.dataTask` to return a `Future` to the resulting `Data`.
+As an example, let's suppose you want to wrap `URLSession`'s `.dataTask` to return a `Future` to the resulting `Data`.
 
     extension URLSession
     {
@@ -301,8 +301,12 @@ As an example, let's suppose you want to wrap `URLSession.dataTask` to return a 
         }
     }
 
+The `.set(from:)` method will set the `Future` according to whether the closure returns or throws, which in this case depends on whether `dataTask` calls its completion handler with an error:
 
-This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `.set(from:)` will set the `.error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `.set(from:)` will set the `.value` to `data` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also qresume the task returned from `dataTask` before returning.
+- If `.dataTask` calls its completion handler with a non-`nil` error, the closure passed to `.set(from:`) will throw, causing the `Promise` to set the `Future`'s `.error`.
+- If `.dataTask` calls its completion handler with a `nil` error, the closure passed to `.set(from:)` will return `data` causing the `Promise` to set the `Future`'s `value` to `data`.
+
+In this example, we ignore `response`, and since we return a `Future` instead of a `URLSessionDataTask`, so we also resume the task returned from `dataTask` before returning.
 
 ##### `.setResult(from:)`
 `Promise` also provides a `setResult(from:)` method that takes a *non-throwing* closure that returns a Swift `Result`: 
