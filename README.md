@@ -1,6 +1,6 @@
 #  Async
 
-`Async` is a framework of functions and types that I have found incredibly useful in working with *Grand Central Dispatch*, although the work horses of the library, `Future` and its coresponding `Promise`,  are useful in a wider variety of contexts.   I've been using these in my own code for a long time, and have always meant to share them, so now I finally am.   I have other types and functions I have found useful that I may add later, but these form the core functionality I use nearly every time I use GCD.  
+`Async` is a free-to-use framework of functions and types that I have found incredibly useful in working with *Grand Central Dispatch*, although the work horses of the library, `Future` and its coresponding `Promise`,  are useful in a wider variety of contexts.   I've been using these in my own code for a long time, and have always meant to share them, so now I finally am.   I have other types and functions I have found useful that I may add later, but these form the core functionality I use nearly every time I use GCD. 
 
 Even though `Future` is really the central feature, the library is called `Async` because it provides global `async` free functions and adds coresponding methods on `DispatchQueue` that return a `Future`, so I almost never need to explictly create a `Promise` , and often the `Future` itself just disappears behind fluid completion handler syntax, so that it almost seems as though the library is about `async`.   But actually `Future` is the hero, and it's more flexible than most `Future` implementations I've seen.
 
