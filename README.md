@@ -292,8 +292,7 @@ As an example, let's suppose you want to wrap `URLSession.dataTask` to return a 
     }
 
 
-This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `.set(from:)` will set the `.error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `.set(from:)` will set the `.value` to `data` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also resume the task returned from `dataTask` before returning.
-
+This example ignores `response`, but if `dataTask` results in an error, throwing that error in the closure we pass to `.set(from:)` will set the `.error` in the returned `Future`.   If there is no error, returning the `data` in the closure passed to `.set(from:)` will set the `.value` to `data` in the returned `Future`.  In this example, we return a `Future` instead of a `URLSessionDataTask`, so we also qresume the task returned from `dataTask` before returning.
 
 ##### `.setResult(from:)`
 `Promise` also provides a `setResult(from:)` method that takes a *non-throwing* closure that returns a Swift `Result`: 
