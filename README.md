@@ -56,6 +56,12 @@ You can think of a `Future` in several ways, and they are all simultaneously tru
 - It is a placeholder for some result to be set by some other code in the future, possibly in another thread of execution.
 - It is a means of specifying completion handlers to be executed when a closure returns or throws, possibly in another thread of execution.
 
+Attaching handlers (callbacks) to a `Future` is the easiest and safest way to keep your code from blocking on a result, since you can just continue on doing something else after attaching them, and your handlers will be called automatically when your asynchronous code completes.  In terms of ease of use and safety, handlers are normally the way to go.  
+
+They do have some drawbacks though.  If you're combining the results of several asynchronous tasks that must all complete before progress can be made, handlers can be awkward.  For example, in a computation graph, all input computations must complete before the current node can be evaluated.   In that case the current computation should block until the inputs are ready.  Of course, you could force the square peg of handlers into this round hole, but that's not a good use case for handlers.  You'd need to update some counter for inputs, ensure that updates to that counter from multiple handlers happen atomicly, and block on that counter.  It's not that hard, but what a needless, inefficient and error-prone mess!  By comparison, it's ideal for using collection of `Future`s as placeholders.  Just iteratively wait on each of them.  When the loop completes they're all ready, and you can proceed to evaluate the current node.  This is exactly why I provide that alternative.
+
+On the other hand, fetching data from a network or responding to events, very common cases, are usually ideal uses of handlers, and keeping a `Future` for a placeholder becomes the awkward one, becuase it requires you either to block until its ready, or to write some kind of loop or other scheme to continually check when it's ready while your code continues.
+
 The implementation of `async` in this package, differs from GCD's native `async` and `asyncAfter` methods in two ways.  The first is that it returns a `Future`, and the second is that there are global free function variants that use a default concurrent `DispatchQueue`, in addition to methods on `DispatchQueue` itself.
 
 When you call `async`, it schedules your closure for execution, using GCD's native `async`, but it also immediately returns a `Future` for the value your closure will return, or the error it will throw.  You can hold on to this `Future` as a means for querying for your closure's eventual result, or you can use it to attach handlers... or both.  The two ways of using it can be used together, if that makes sense for your application.
@@ -103,18 +109,25 @@ If you prefer to use Swift's `Result` type, you can use a more general `.onCompl
 
 You can specify as many handlers as you like, mixing and matching, completion handlers, success handlers, and failure handlers.  All applicable handlers will be called concurrently.  This allows you to return the future you got from `async` so that code further up the call chain can attach their own handlers.
 
-You can also specify a time-out for the `Future` using the same fluid style.  See the comment documentation for `Future` for more information on that.
+
+##### `.timeout`
+You can also specify a time-out for the `Future` using the same fluid style.  If the specified time-out elapses before the closure completes, an error is set in the `Future` and its `.onFailure` and `.onCompletion` handlers are called.  See the comment documentation for `Future` for more information on that.
 
 
 #### `Future` as a placeholder
+
+As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   This is especially useful when you use `async` to subdivide a larger task into to a number of concurrent subtasks, which must be combined into a final result before continuing.
 
 When using `Future` as a placeholder, you store away as you might store the actual value or value returned by the asynchronous code if it had been called synchronously, and query then `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
 
 Any handlers that have been attached will still be run, whether or not you use `Future` as a placeholder.    The two styles of use can be used together.
 
 ##### Blocking methods and properties
+
+In an AppKit/UIKit application, using blocking methods and properties in the main thread make your app unresponsive while they block.   Either use them in separate thread, use `.isReady` to do something else when the `Future` is not ready, ensure that all asynchronous calls will completely quickly, or just avoid blocking methods and properties altogether by attaching handlers instead. 
+
 ###### `.value` and `.error`:
-As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   We'll use the same `foo` from the previous examples:
+You can obtain the value or error from the future with its `.value` and `.error` properties.  We'll use the same `foo` from the previous examples:
 
     let future = async { return try foo() }
 
@@ -126,7 +139,9 @@ As an alternative to the fluid, functional-like, usage above, you can use `Futur
         print("foo threw exception, \(error.localizedDescription)")
     }
 
-Here, we query for a value by accessing the `.value` property, and for an error via the `.error` property.  These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, if it returns a value, `.value` will contain that value, and `.error` will be `nil`.   If `foo` throws an error, then `.value` will be `nil`, and `.error` will contain the error.
+These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, if it returns a value, `.value` will contain that value, and `.error` will be `nil`.   If `foo` throws an error, then `.value` will be `nil`, and `.error` will contain the error.  The `Future` will never have both an error and a value.
+
+Note that if a `timeout` modifer was set as mentioned above, and the specified time-out elapses before the closure completes, `.error` will contain `FutureError.timedOut`.  
 
 
 ###### `.result`
@@ -144,6 +159,9 @@ If you prefer to use Swift's `Result` type, you can access the `.result` propert
 
 `.result` will block in exactly the same way as `.value` and `.error`.
 
+If a `timeout` modifer was set as mentioned above, and the specified time-out elapses before the closure completes, `.result` will be `.failure(FutureError.timedOut)`.  
+
+
 ###### `.wait()`
 If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
 
@@ -152,6 +170,8 @@ If you don't need the actual result (perhaps your closure returns `Void`), you c
     future.wait() // block until future is ready
 
     // Now the future is ready, so do other stuff
+    
+`.wait()` also has a time-out variant.  It is different from the `timeout` modifier mentioned above in that it does not set an error in the `Future` when it times out.  It merely stops waiting for the `Future` to be ready, throwing an error itself when it times out.  Refer to `Future`'s comment documentation for more information.
 
 
 ##### Non-blocking methods and properties
@@ -171,7 +191,7 @@ The blocking behavior of `.wait()`,  `.value` ,  `.error` and `.result` is usefu
         print("foo threw exception, \(error.localizedDescription)")
     }
 
-*If you're not going to do other work while you wait for the `Future` to be ready, it's far more efficient to call `.wait()` rather than looping on `.isReady`, because all of `Future's` locking methods and properties use `DispatchSemaphore` under the hood, which can truly suspend the thread, whereas spinning on `.isReady` will consume CPU cycles unnecessarily.*
+*If you're not going to do other work while you wait for the `Future` to be ready, it's far more efficient to call `.wait()` rather than looping on `.isReady`, because all of `Future's` blocking methods and properties, including `.wait()`, use `DispatchSemaphore` under the hood, which can truly suspend the thread, whereas spinning on `.isReady` will consume CPU cycles unnecessarily.*
 
 #### `async` variations
 
