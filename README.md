@@ -118,7 +118,7 @@ You can also specify a time-out for the `Future` using the same fluid style.  If
 
 As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   This is especially useful when you use `async` to subdivide a larger task into to a number of concurrent subtasks, which must be combined into a final result before continuing.
 
-When using `Future` as a placeholder, you store it away as you might store the actual value or value returned by the asynchronous code, if it had been called synchronously, and query then `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
+When using `Future` as a placeholder, you store it away as you might store the actual value or value returned by the asynchronous code, if it had been called synchronously, and then query the `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
 
 Any handlers that have been attached will still be run, whether or not you use `Future` as a placeholder.    The two styles of use can be used together.
 
@@ -139,7 +139,12 @@ You can obtain the value or error from the future with its `.value` and `.error`
         print("foo threw exception, \(error.localizedDescription)")
     }
 
-These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, if it returns a value, `.value` will contain that value, and `.error` will be `nil`.   If `foo` throws an error, then `.value` will be `nil`, and `.error` will contain the error.  The `Future` will never have both an error and a value.
+These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, one of the following will be true:
+
+- If it returns a value, `.value` will contain that value, and `.error` will be `nil`.   
+- If it throws an error, `.value` will be `nil`, and `.error` will contain the error.  
+
+The `Future` will never have both an error and a value.
 
 Note that if a `timeout` modifer was set as mentioned above, and the specified time-out elapses before the closure completes, `.error` will contain `FutureError.timedOut`.  
 
@@ -198,6 +203,11 @@ The blocking behavior of `.wait()`,  `.value` ,  `.error` and `.result` is usefu
 All of the `async` variants allow you to specify quality of service (qos), and flags just as the GCD native `async` and `asyncAfter` do, and use the same default values when you don't specify them.
 
 The following examples use the global async free functions, but the `DispatchQueue` extension provides equivalent instance methods with the same signatures as the global functions, so you can call them on a specific `DispatchQueue`.
+
+##### `.async()`
+If you want your closure to be executed as soon as possible, you can call it as the previous examples with no deadline or delay interval.
+
+    let future = async { return try foo() }
 
 ##### `.async(afterDeadline:)`
 If you need to delay execution of your closure until a specific point in time, you can use the `afterDeadline` variant to specify a `DispatchTime` or `Date`
