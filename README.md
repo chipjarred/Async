@@ -108,7 +108,12 @@ You can also specify a time-out for the `Future` using the same fluid style.  Se
 
 #### `Future` as a placeholder
 
-##### `.value` and `.error`
+When using `Future` as a placeholder, you store away as you might store the actual value or value returned by the asynchronous code if it had been called synchronously, and query then `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
+
+Any handlers that have been attached will still be run, whether or not you use `Future` as a placeholder.    The two styles of use can be used together.
+
+##### Blocking methods and properties
+###### `.value` and `.error`:
 As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   We'll use the same `foo` from the previous examples:
 
     let future = async { return try foo() }
@@ -123,7 +128,35 @@ As an alternative to the fluid, functional-like, usage above, you can use `Futur
 
 Here, we query for a value by accessing the `.value` property, and for an error via the `.error` property.  These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, if it returns a value, `.value` will contain that value, and `.error` will be `nil`.   If `foo` throws an error, then `.value` will be `nil`, and `.error` will contain the error.
 
-This blocking behavior is useful if the next bit of code depends on the value returned by `foo`, but it can be a problem if we could do other work while we wait for the `Future` to be ready, because it stops our current thread in its tracks until `foo` is done, in which case, we don't get much value from using `async`.  For this reason, the ability to determine if the `Future` is ready without blocking is essential.  You can do this with the `.isReady` property:
+
+###### `.result`
+If you prefer to use Swift's `Result` type, you can access the `.result` property instead of `.value` and `.error`:
+
+    let future = async { return try foo() }
+
+    // future.result will block just until future is ready
+    switch future.result {
+        case let .success(value): 
+            print("foo returned \(value)")
+        case let .failure(error): 
+            print("foo threw exception, \(error.localizedDescription)")
+    }
+
+`.result` will block in exactly the same way as `.value` and `.error`.
+
+###### `.wait()`
+If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
+
+    let future = async { let _ = try foo() }
+
+    future.wait() // block until future is ready
+
+    // Now the future is ready, so do other stuff
+
+
+##### Non-blocking methods and properties
+###### `.isReady`
+The blocking behavior of `.wait()`,  `.value` ,  `.error` and `.result` is useful if the code following them depends on the value returned or error thrown by `foo`, but it can be a problem if you could do other work while you wait for the `Future` to be ready, because it stops your current thread in its tracks until `foo` is done, in which case, you don't get much value from using `async`.  For this reason, the ability to determine if the `Future` is ready without blocking is essential.  You can do this with the `.isReady` property:
 
     let future = async { return try foo() }
 
@@ -138,33 +171,7 @@ This blocking behavior is useful if the next bit of code depends on the value re
         print("foo threw exception, \(error.localizedDescription)")
     }
 
-##### `.result`
-As with completion handlers, if you prefer to use Swift's `Result` type, you can access the `.result` property instead of `.value` and `.error`:
-
-    let future = async { return try foo() }
-
-    // future.result will block just until future is ready
-    switch future.result {
-        case let .success(value): 
-            print("foo returned \(value)")
-        case let .failure(error): 
-            print("foo threw exception, \(error.localizedDescription)")
-    }
-
-`.result` will block in exactly the same way as `.value` and `.error`.
-
-Any handlers that have been attached will still be run.    The two styles of use can be used together.
-
-##### `.wait`
-If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
-
-    let future = async { let _ = try foo() }
-
-    future.wait() // block until future is ready
-
-    // Now the future is ready, so do other stuff
-
-If you're not going to do other work while you wait for the `Future` to be ready, it's far more efficient to call `.wait()` rather than looping on `.isReady`, because all of `Future's` locking methods and properties use `DispatchSemaphore` under the hood, which can truly suspend the thread, whereas spinning on `.isReady` will consume CPU cycles unnecessarily.
+*If you're not going to do other work while you wait for the `Future` to be ready, it's far more efficient to call `.wait()` rather than looping on `.isReady`, because all of `Future's` locking methods and properties use `DispatchSemaphore` under the hood, which can truly suspend the thread, whereas spinning on `.isReady` will consume CPU cycles unnecessarily.*
 
 #### `async` variations
 
