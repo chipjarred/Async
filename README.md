@@ -272,7 +272,7 @@ Refer to comment documentation for more information on these other methods.
 
 ### `Promise`
 
-`Promise` is the sender of the `Promise`/`Future` team.  It's how you obtain a `Future` to return from your own code, and how you set the value in the `Future` from a code that may be executed far removed from the code receiving the `Future`, possibly in a completely different thread.
+`Promise` is the sender of the `Promise`/`Future` team.  It's how you obtain a `Future` to return from your own code, and how you set the value in the `Future` from code that may be executed far removed from the code receiving the `Future`, possibly in a completely different thread.
 
 ##### `.set(from:)`
 If you wish to return a `Future` in your own custom code, you do so by creating a `Promise` and returning its `.future` property in the immediate context, while passing the closure that returns the value, possibly throwing an error,  to the `.set(from:)` method in the dispatched context.
