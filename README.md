@@ -62,6 +62,8 @@ They do have some drawbacks though.  If you're combining the results of several 
 
 On the other hand, fetching data from a network or responding to events, very common cases, are usually ideal uses of handlers, and keeping a `Future` for a placeholder becomes the awkward one, because it requires you either to block until it's ready, or to write some kind of loop or other scheme to continually check when it's ready while your code continues.
 
+Having said that completion handlers are a good fit for callbacks, such as for HTTP requests, using them as placeholders is a good way to avoid deeply nested callbacks when the results of one request require spawning another request, and another. 
+
 The implementation of `async` in this package, differs from GCD's native `async` and `asyncAfter` methods in two ways.  The first is that it returns a `Future`, and the second is that there are global free function variants that use a default concurrent `DispatchQueue`, in addition to methods on `DispatchQueue` itself.
 
 When you call `async`, it schedules your closure for execution, using GCD's native `async`, but it also immediately returns a `Future` for the value your closure will return, or the error it will throw.  You can hold on to this `Future` as a means for querying for your closure's eventual result, or you can use it to attach handlers... or both.  The two ways of using it can be used together, if that makes sense for your application.
@@ -118,7 +120,7 @@ You can also specify a time-out for the `Future` using the same fluid style.  If
 
 As an alternative to the fluid, functional-like, usage above, you can use `Future` in a more traditionally imperative way, as a placeholder for a yet to be determined value.   Used this way, it's much more like C++'s `std::future`.   This is especially useful when you use `async` to subdivide a larger task into to a number of concurrent subtasks, which must be combined into a final result before continuing.
 
-When using `Future` as a placeholder, you store it away as you might store the actual value or value returned by the asynchronous code, if it had been called synchronously, and then query the `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
+When using `Future` as a placeholder, you store it away as you might store the actual value returned by the asynchronous code or the error thrown by it, if it had been called synchronously, and then query the `Future` for the value or error some time later when you need it.  To support this, `Future` provides blocking properties and methods to query the future and wait for it to be ready, as well as a non-blocking property to query its ready state.
 
 Any handlers that have been attached will still be run, whether or not you use `Future` as a placeholder.    The two styles of use can be used together.
 
@@ -154,7 +156,7 @@ If you prefer to use Swift's `Result` type, you can access the `.result` propert
 
     let future = async { return try foo() }
 
-    // future.result will block just until future is ready
+    // future.result will block until future is ready
     switch future.result {
         case let .success(value): 
             print("foo returned \(value)")
@@ -166,6 +168,18 @@ If you prefer to use Swift's `Result` type, you can access the `.result` propert
 
 If a `timeout` modifer was set as mentioned above, and the specified time-out elapses before the closure completes, `.result` will be `.failure(FutureError.timedOut)`.  
 
+###### `.getValue()`
+If you prefer to use `do {...} catch {...}` blocks for error handling, `Future` provides a throwing `.getValue()` method:
+
+    let future = async { return try foo() }
+
+    // future.getValue() will block until the foo returns or throws
+    do 
+    {
+        let value = try future.getValue()
+        print("foo returned \(value)")
+    }
+    catch { print("foo threw exception, \(error.localizedDescription)") }
 
 ###### `.wait()`
 If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
