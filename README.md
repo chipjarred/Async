@@ -247,8 +247,11 @@ Alternatively, you can specify the delay as a `TimeInterval` in seconds, using t
 
 ### `sync`
 
-`sync` works exactly the same as `async`, including the variants, except that the closure passed to it is run immediately in the current thread, so the `Future` it returns is immediately ready, and any handlers you attach will be executed as soon as they are attached, if they apply.   Otherwise everything said for `async` applies to `sync`
+`sync` is the synchronous dual of `async`.  It runs the closure passed to it in the current thread before returning.
 
+If no deadline or delay is specified, it will execute the closure immediately.  If a deadline or delay is specified, it will block until the deadline, or delay has elapsed, and then execute the closure.  Because `sync` doesn't return until the closure has been executed, any handlers attached to the `Future` it returns will be executed as soon as they are attached, if they apply.
+
+Otherwise everything said for `async` applies to `sync`.s
 
 ### `Mutex`
 
