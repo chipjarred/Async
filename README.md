@@ -251,7 +251,7 @@ Alternatively, you can specify the delay as a `TimeInterval` in seconds, using t
 
 If no deadline or delay is specified, it will execute the closure immediately.  If a deadline or delay is specified, it will block until the deadline, or delay has elapsed, and then execute the closure.  Because `sync` doesn't return until the closure has been executed, any handlers attached to the `Future` it returns will be executed as soon as they are attached, if they apply.
 
-Otherwise everything said for `async` applies to `sync`.s
+Otherwise everything said for `async` applies to `sync`.
 
 ### `Mutex`
 
