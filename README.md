@@ -18,7 +18,7 @@ I provide a few variations, because I find it annoying that it's necessary to sp
 
 There are *synchronous* versons of the global  `async` free functions.  They merely run your closure immediately in the current thread as though you had called it directly yourself.  This is useful for several reasons:
         
-• It allows an intermediate step in refactoring synchronous code into asynchronous during which you are still executing a code synchronously while getting a `Future` from it.  In that case, the `Future` is ready immediately when your closure returns, and if you added handlers, they are called immediately.   Then by simply changing `sync` to `async`, it becomes truly asynchronous.   
+• It allows an intermediate step in refactoring synchronous code into asynchronous during which you are still executing a closure synchronously while getting a `Future` from it.  In that case, the `Future` is ready immediately when your closure returns, and if you added handlers, they are called immediately.   Then by simply changing `sync` to `async`, it becomes truly asynchronous.   
 
 • It is sometimes helpful for debugging to use `sync`  instead of `async` temporarily, and it is a simple one-letter code change.   
 
