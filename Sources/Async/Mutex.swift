@@ -56,13 +56,16 @@ import Foundation
             }
         }
  */
-public class Mutex
+public final class Mutex
 {
 	private var semaphore = DispatchSemaphore(value: 1)
     
     public enum MutexError: Error {
         case lockFailed
     }
+    
+    // ------------------------------------------
+    @inlinable public init() { }
     
 	// ------------------------------------------
     /**
