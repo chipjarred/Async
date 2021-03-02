@@ -73,26 +73,29 @@ When you call `async`, it schedules your closure for execution, using GCD's nati
 ##### `.onSuccess` and `.onFailure`
 As a basic example, let's say we have a long-running function, `foo() throws -> Int`.  We can schedule `foo` with `async`, and attach handlers to the returned `Future` like so:
 
-    async { return try foo() }.onSuccess {
-        print("foo returned \($0)")
-    }.onFailure {
-        print("foo threw exception, \($0.localizedDescription)")
-    }
+```swift
+async { return try foo() }.onSuccess {
+    print("foo returned \($0)")
+}.onFailure {
+    print("foo threw exception, \($0.localizedDescription)")
+}
+```
 
 `foo` will run concurrently, and if it eventually returns a value, the closure passed to `.onSuccess` will be called with that value.   If on the other hand, `foo` throws, the closure passed to `.onFailure` is called with the error.
 
 Notice how the `Future` doesn't explicitly appear in the above code, but it's there.  It's what `async` returns, in this case, `Future<Int>`, and it's that `Future`'s `.onSuccess` method that we're calling to specify the success handler.  `.onSuccess` returns the same `Future`, which allows us to chain a `.onFailure` method call to schedule our failure handler.    It is equivalent to:
 
+```swift
+let future = async { return try foo() }
 
-    let future = async { return try foo() }
+future.onSuccess {
+    print("foo returned \($0)")
+}
 
-    future.onSuccess {
-        print("foo returned \($0)")
-    }
-
-    future.onFailure {
-        print("foo threw exception, \($0.localizedDescription)")
-    }
+future.onFailure {
+    print("foo threw exception, \($0.localizedDescription)")
+}
+```
 
 
 You can attach handlers in any order, if you prefer to put the failure handler first.
@@ -100,6 +103,7 @@ You can attach handlers in any order, if you prefer to put the failure handler f
 ##### `.onCompletion`
 If you prefer to use Swift's `Result` type, you can use a more general `.onCompletion` handler:
 
+```swift
     async { return try foo() }.onCompletion {
         switch $0 {
             case let .success(value): 
@@ -108,6 +112,7 @@ If you prefer to use Swift's `Result` type, you can use a more general `.onCompl
                 print("foo threw exception, \(error.localizedDescription)")
         }
     }
+```
 
 You can specify as many handlers as you like, mixing and matching, completion handlers, success handlers, and failure handlers.  All applicable handlers will be called concurrently.  This allows you to return the future you got from `async` so that code further up the call chain can attach their own handlers.
 
@@ -131,15 +136,17 @@ Be aware that in an AppKit/UIKit application, using blocking methods and propert
 ###### `.value` and `.error`:
 You can obtain the value or error from the future with its `.value` and `.error` properties.  We'll use the same `foo` from the previous examples:
 
-    let future = async { return try foo() }
+```swift
+let future = async { return try foo() }
 
-    // future.value and future.error will block until the foo returns or throws
-    if let value = future.value {
-        print("foo returned \(value)")
-    }
-    else if let error = future.error {
-        print("foo threw exception, \(error.localizedDescription)")
-    }
+// future.value and future.error will block until the foo returns or throws
+if let value = future.value {
+    print("foo returned \(value)")
+}
+else if let error = future.error {
+    print("foo threw exception, \(error.localizedDescription)")
+}
+```
 
 These properties *only* return when the future is ready, meaning that `foo` has either returned a value or thrown an error.  Until then, they just block, waiting for `foo` to complete.   When `foo` does complete, one of the following will be true:
 
@@ -154,15 +161,17 @@ Note that if a `timeout` modifer was set as mentioned above, and the specified t
 ###### `.result`
 If you prefer to use Swift's `Result` type, you can access the `.result` property instead of `.value` and `.error`:
 
-    let future = async { return try foo() }
+```swift
+let future = async { return try foo() }
 
-    // future.result will block until future is ready
-    switch future.result {
-        case let .success(value): 
-            print("foo returned \(value)")
-        case let .failure(error): 
-            print("foo threw exception, \(error.localizedDescription)")
-    }
+// future.result will block until future is ready
+switch future.result {
+    case let .success(value): 
+        print("foo returned \(value)")
+    case let .failure(error): 
+        print("foo threw exception, \(error.localizedDescription)")
+}
+```
 
 `.result` will block in exactly the same way as `.value` and `.error`.
 
@@ -171,24 +180,28 @@ If a `timeout` modifer was set as mentioned above, and the specified time-out el
 ###### `.getValue()`
 If you prefer to use `do {...} catch {...}` blocks for error handling, `Future` provides a throwing `.getValue()` method:
 
-    let future = async { return try foo() }
+```swift
+let future = async { return try foo() }
 
-    // future.getValue() will block until the foo returns or throws
-    do 
-    {
-        let value = try future.getValue()
-        print("foo returned \(value)")
-    }
-    catch { print("foo threw exception, \(error.localizedDescription)") }
+// future.getValue() will block until the foo returns or throws
+do 
+{
+    let value = try future.getValue()
+    print("foo returned \(value)")
+}
+catch { print("foo threw exception, \(error.localizedDescription)") }
+```
 
 ###### `.wait()`
 If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
 
+```swift
     let future = async { let _ = try foo() }
 
     future.wait() // block until future is ready
 
     // Now the future is ready, so do other stuff
+```
     
 `.wait()` also has a time-out variant.  It is different from the `timeout` modifier mentioned above in that it does not set an error in the `Future` when it times out.  It merely stops waiting for the `Future` to be ready, throwing an error itself when it times out.  Refer to `Future`'s comment documentation for more information.
 
@@ -197,18 +210,20 @@ If you don't need the actual result (perhaps your closure returns `Void`), you c
 ###### `.isReady`
 The blocking behavior of `.wait()`,  `.value` ,  `.error` and `.result` is useful if the code following them depends on the value returned or error thrown by `foo`, but it can be a problem if you could do other work while you wait for the `Future` to be ready, because it stops your current thread in its tracks until `foo` is done, in which case, you don't get much value from using `async`.  For this reason, the ability to determine if the `Future` is ready without blocking is essential.  You can do this with the `.isReady` property:
 
-    let future = async { return try foo() }
+```swift
+let future = async { return try foo() }
 
-    while !future.isReady {
-        // Do some other work while we wait
-    }
+while !future.isReady {
+    // Do some other work while we wait
+}
 
-    if let value = future.value {
-        print("foo returned \(value)")
-    }
-    else if let error = future.error {
-        print("foo threw exception, \(error.localizedDescription)")
-    }
+if let value = future.value {
+    print("foo returned \(value)")
+}
+else if let error = future.error {
+    print("foo threw exception, \(error.localizedDescription)")
+}
+```
 
 *If you're not going to do other work while you wait for the `Future` to be ready, it's far more efficient to call `.wait()` rather than looping on `.isReady`, because all of `Future's` blocking methods and properties, including `.wait()`, use `DispatchSemaphore` under the hood, which can truly suspend the thread, whereas spinning on `.isReady` will consume CPU cycles unnecessarily.*
 
@@ -221,29 +236,37 @@ The following examples use the global async free functions, but the `DispatchQue
 ##### `.async()`
 If you want your closure to be executed as soon as possible, you can call it as the previous examples with no deadline or delay interval.
 
-    let future = async { return try foo() }
+```swift
+let future = async { return try foo() }
+```
 
 ##### `.async(afterDeadline:)`
 If you need to delay execution of your closure until a specific point in time, you can use the `afterDeadline` variant to specify a `DispatchTime` or `Date`
 
-    let deadline: DispatchTime = .now() + .milliseconds(1000)
-    
-    // Some time later...
-    let future = async(afterDeadline: deadline) {
-        return try foo()
-    }
+```swift
+let deadline: DispatchTime = .now() + .milliseconds(1000)
+
+// Some time later...
+let future = async(afterDeadline: deadline) {
+    return try foo()
+}
+```
     
 ##### `.async(afterInterval:)`
 To specify a delay interval using just `DispatchTimeInterval`, you can use the `afterInterval` variant
 
-    let future = async(afterInterval: .milliseconds(1000)) {
-        return try foo()
-    }
+```swift
+let future = async(afterInterval: .milliseconds(1000)) {
+    return try foo()
+}
+```
 
 ##### `.async(afterSeconds:)`
 Alternatively, you can specify the delay as a `TimeInterval` in seconds, using the `afterSeconds` variant
 
-    let future = async(afterSeconds: 1) { return try foo() }
+```swift
+let future = async(afterSeconds: 1) { return try foo() }
+```
 
 ### `sync`
 
@@ -257,27 +280,29 @@ Otherwise everything said for `async` applies to `sync`.
 
 One unfortunate side effect of concurrent code, such as that executed by `async`, is that any mutable shared data that could be accessed by multiple tasks simultaneously must be guarded to avoid data races.  That's what `Mutex` is for.   You create a `Mutex` to guard some data, and then lock it before accessing the shared data, and unlock it afterwards.   Explicitly having to lock and unlock the `Mutex` is error prone, *so the preferred way to use this implementation of `Mutex` is through its `withLock` method*.   As an example, here's a simple implemenation of a `SharedStack`:
 
-    class SharedStack<T>
-    {
-        private var data = [T]()
-        private var mutex = Mutex()
-        
-        public var isEmpty: Bool {
-            return mutex.withLock { data.isEmpty }
-        }
-        
-        public init() {}
-        
-        public func push(_ value: T) {
-            mutex.withLock { data.append(value) }
-        }
-        
-        public func pop() -> T? {
-            return mutex.withLock { 
-                return data.isEmpty ? nil : data.removeLast() 
-            }
+```swift
+class SharedStack<T>
+{
+    private var data = [T]()
+    private var mutex = Mutex()
+    
+    public var isEmpty: Bool {
+        return mutex.withLock { data.isEmpty }
+    }
+    
+    public init() {}
+    
+    public func push(_ value: T) {
+        mutex.withLock { data.append(value) }
+    }
+    
+    public func pop() -> T? {
+        return mutex.withLock { 
+            return data.isEmpty ? nil : data.removeLast() 
         }
     }
+}
+```
 
 `withLock` blocks until the a lock can be obtained, and once obtained, it executes the closure passed to it, and unlocks before returning.  The unlock happens immediately after the closure completes, regardless of whether it returns or throws.
 
@@ -296,27 +321,29 @@ If you wish to return a `Future` in your own custom code, you do so by creating 
 
 As an example, let's suppose you want to wrap `URLSession`'s `.dataTask` to return a `Future` to the resulting `Data`.
 
-    extension URLSession
+```swift
+extension URLSession
+{
+    func dataFuture(with url: URL) -> Future<Data>
     {
-        func dataFuture(with url: URL) -> Future<Data>
-        {
-            let promise = Promise<Data>()
-            
-            let task = self.dataTask(with: url) {
-                (data, response, error) in
-            
-                // ignoring response for this example
-                promise.set {
-                    if let error = error {
-                        throw error
-                    }
-                    return data ?? Data()
+        let promise = Promise<Data>()
+        
+        let task = self.dataTask(with: url) {
+            (data, response, error) in
+        
+            // ignoring response for this example
+            promise.set {
+                if let error = error {
+                    throw error
                 }
+                return data ?? Data()
             }
-            task.resume()
-            return promise.future
         }
+        task.resume()
+        return promise.future
     }
+}
+```
 
 The `.set(from:)` method will set the `Future` according to whether the closure returns or throws, which in this case depends on whether `dataTask` calls its completion handler with an error:
 
@@ -328,24 +355,26 @@ In this example, we ignore `response`, and since we return a `Future` instead of
 ##### `.setResult(from:)`
 `Promise` also provides a `setResult(from:)` method that takes a *non-throwing* closure that returns a Swift `Result`: 
 
-    extension URLSession
+```swift
+extension URLSession
+{
+    func dataFuture(with url: URL) -> Future<Data>
     {
-        func dataFuture(with url: URL) -> Future<Data>
-        {
-            let promise = Promise<Data>()
-            
-            let task = self.dataTask(with: url) {
-                (data, response, error) in
-            
-                // ignoring response for this example
-                promise.setResult { () -> Result<Data, Error> in
-                    if let error = error {
-                        return .failure(error)
-                    }
-                    return .success(data ?? Data())
+        let promise = Promise<Data>()
+        
+        let task = self.dataTask(with: url) {
+            (data, response, error) in
+        
+            // ignoring response for this example
+            promise.setResult { () -> Result<Data, Error> in
+                if let error = error {
+                    return .failure(error)
                 }
+                return .success(data ?? Data())
             }
-            task.resume()
-            return promise.future
         }
+        task.resume()
+        return promise.future
     }
+}
+```
