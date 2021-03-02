@@ -104,14 +104,14 @@ You can attach handlers in any order, if you prefer to put the failure handler f
 If you prefer to use Swift's `Result` type, you can use a more general `.onCompletion` handler:
 
 ```swift
-    async { return try foo() }.onCompletion {
-        switch $0 {
-            case let .success(value): 
-                print("foo returned \(value)")
-            case let .failure(error): 
-                print("foo threw exception, \(error.localizedDescription)")
-        }
+async { return try foo() }.onCompletion {
+    switch $0 {
+        case let .success(value): 
+            print("foo returned \(value)")
+        case let .failure(error): 
+            print("foo threw exception, \(error.localizedDescription)")
     }
+}
 ```
 
 You can specify as many handlers as you like, mixing and matching, completion handlers, success handlers, and failure handlers.  All applicable handlers will be called concurrently.  This allows you to return the future you got from `async` so that code further up the call chain can attach their own handlers.
@@ -196,11 +196,11 @@ catch { print("foo threw exception, \(error.localizedDescription)") }
 If you don't need the actual result (perhaps your closure returns `Void`), you can simply call the `.wait()` method
 
 ```swift
-    let future = async { let _ = try foo() }
+let future = async { let _ = try foo() }
 
-    future.wait() // block until future is ready
+future.wait() // block until future is ready
 
-    // Now the future is ready, so do other stuff
+// Now the future is ready, so do other stuff
 ```
     
 `.wait()` also has a time-out variant.  It is different from the `timeout` modifier mentioned above in that it does not set an error in the `Future` when it times out.  It merely stops waiting for the `Future` to be ready, throwing an error itself when it times out.  Refer to `Future`'s comment documentation for more information.
